@@ -1,0 +1,221 @@
+Perfect! Here’s your **CI4 College ERP Survival Cheat Sheet** – all **must-know commands, methods, and snippets** you’ll use daily. I made it **short, practical, and ERP-focused**.
+
+---
+
+# **CodeIgniter 4 ERP Survival Cheat Sheet**
+
+---
+
+## **1️⃣ CRUD Operations**
+
+### **Model Basics**
+
+```php
+// StudentModel.php
+protected $table = 'students';
+protected $primaryKey = 'id';
+protected $allowedFields = ['name', 'email', 'course', 'year'];
+```
+
+### **Insert / Add Student**
+
+```php
+$model = new StudentModel();
+$model->insert([
+    'name' => 'John Doe',
+    'email' => 'john@example.com',
+    'course' => 'CSE',
+    'year' => 2
+]);
+```
+
+### **Update Student**
+
+```php
+$model->update($id, ['year' => 3]);
+```
+
+### **Delete Student**
+
+```php
+$model->delete($id);
+```
+
+### **Find / Fetch Students**
+
+```php
+$model->findAll();           // All students
+$model->find($id);           // By ID
+$model->where('course','CSE')->findAll(); // Filtered
+```
+
+### **Bulk Insert**
+
+```php
+$data = [
+    ['name'=>'Abi','course'=>'CSE','year'=>2],
+    ['name'=>'Priya','course'=>'ECE','year'=>1]
+];
+$model->insertBatch($data);
+```
+
+---
+
+## **2️⃣ Session / Authentication**
+
+### **Set Session**
+
+```php
+$session = session();
+$session->set('user_id', $userId);
+$session->set('role', 'admin');
+```
+
+### **Get Session**
+
+```php
+$session->get('user_id');
+$session->get('role');
+```
+
+### **Check Login**
+
+```php
+if (!$session->has('user_id')) {
+    return redirect()->to('/login');
+}
+```
+
+### **Logout**
+
+```php
+$session->destroy();
+return redirect()->to('/login');
+```
+
+---
+
+## **3️⃣ Helpers & Report Generation**
+
+### **Load Helpers**
+
+```php
+helper(['url', 'form', 'file']); // URL, form, file helpers
+```
+
+### **Example: Count Students per Course**
+
+```php
+$builder = $model->builder();
+$builder->select('course, COUNT(*) as total')
+        ->groupBy('course');
+$query = $builder->get();
+$counts = $query->getResult();
+```
+
+### **Example: Export CSV**
+
+```php
+header('Content-Type: text/csv');
+header('Content-Disposition: attachment;filename="students.csv"');
+$output = fopen('php://output','w');
+fputcsv($output, ['ID','Name','Course','Year']);
+foreach($students as $s) {
+    fputcsv($output, [$s->id, $s->name, $s->course, $s->year]);
+}
+fclose($output);
+exit;
+```
+
+---
+
+## **4️⃣ Bulk Upload (CSV / Excel)**
+
+### **Upload File**
+
+```php
+$file = $this->request->getFile('student_file');
+if ($file->isValid() && !$file->hasMoved()) {
+    $filePath = WRITEPATH.'uploads/'.$file->getName();
+    $file->move(WRITEPATH.'uploads');
+}
+```
+
+### **Read CSV**
+
+```php
+$csv = fopen($filePath, 'r');
+$data = [];
+while (($row = fgetcsv($csv)) !== FALSE) {
+    $data[] = [
+        'name' => $row[0],
+        'email'=> $row[1],
+        'course'=> $row[2],
+        'year' => $row[3]
+    ];
+}
+fclose($csv);
+$model->insertBatch($data);
+```
+
+---
+
+## **5️⃣ Validation (Before Insert / Update)**
+
+```php
+if (!$this->validate([
+    'name' => 'required|min_length[3]',
+    'email' => 'required|valid_email',
+    'course' => 'required',
+    'year' => 'required|numeric|greater_than[0]|less_than[5]'
+])) {
+    return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+}
+```
+
+---
+
+## **6️⃣ Filtering & Sorting (ERP Reports)**
+
+```php
+// Filter CSE students, sort by year ascending
+$data['students'] = $model->where('course','CSE')
+                          ->orderBy('year','ASC')
+                          ->findAll();
+```
+
+```php
+// Partial search by name
+$search = $this->request->getVar('q');
+$data['students'] = $model->like('name', $search)->findAll();
+```
+
+---
+
+## **7️⃣ MVC Flow Reminder**
+
+```
+URL -> Routes -> Controller -> Model -> View -> User sees data
+```
+
+* Controller = handles logic & request
+* Model = handles DB queries
+* View = HTML / table / dashboard
+* Session & helper functions = handle auth & reports
+
+---
+
+### ✅ **Pro Tips for College ERP CI4**
+
+* Always use **$allowedFields** in models for safety.
+* Use **session checks** to protect pages.
+* Use **insertBatch()** for bulk uploads.
+* Use **like(), where(), orderBy()** for filtering & sorting.
+* Validate input before saving to DB.
+* Use **helpers** for CSV / file handling.
+
+---
+
+If you want, I can also make a **tiny visual diagram showing CI4 ERP flow + CRUD + Reports + Bulk Upload** – like a **one-page memory map** for work. It’s super handy to survive ERP tasks.
+
+Do you want me to make that?

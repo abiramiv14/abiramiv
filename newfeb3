@@ -14,6 +14,8 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@1.2.0/dist/chartjs-chart-matrix.min.js"></script>
+
 
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
@@ -230,11 +232,18 @@
             justify-content: space-between;
             height: auto;
             /* FIX: Allow height to adjust */
-            min-height: 6rem;
-            width: 100%;
+            height:80px;
+            min-height: 4rem;
+            width: 80%;
             padding: 1rem;
             border-radius: var(--radius);
+            grid-template-columns: repeat(5, 1fr); 
         }
+        #summaryCardsContainer {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* force 5 cards in one row */
+    gap: 12px;
+}
 
         .stat-content {
             display: flex;
@@ -663,6 +672,37 @@
         html, body {
     overflow: visible;
 }
+/* Toggle Container */
+.toggle-container {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0.5rem;
+    background-color: #966b6b; /* light gray background */
+    width: fit-content;
+}
+
+/* Toggle Buttons */
+.toggle-btn {
+    border: none;
+    padding: 0.5rem 1rem;
+    background-color: #e0e0e0; /* default gray */
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+}
+
+.toggle-btn.active-btn {
+    background-color: #3b82f6; /* blue when active */
+    color: white;
+}
+.bg-light-brown {
+    background-color: #f3e6d8;
+}
+
+.text-light-brown {
+    color: #b07a3f;
+}
+
 
     </style>
 </head>
@@ -736,22 +776,21 @@
             <div class="summary-charts-container">
 
                 <!-- Numbers Chart -->
-                <div class="card">
-                    <h3 class="chart-header">Exam Status (Count)</h3>
-                    <div style="height: 200px; width: 100%; position: relative;">
-                        <canvas id="summaryPieChart"></canvas>
-                    </div>
-                    <div id="summaryLegendNumbers" class="custom-legend"></div>
-                </div>
+                
 
-                <!-- Percentage Chart -->
-                <div class="card">
-                    <h3 class="chart-header">Exam Status (%)</h3>
-                    <div style="height: 200px; width: 100%; position: relative;">
-                        <canvas id="summaryDoughnutChart"></canvas>
-                    </div>
-                    <div id="summaryLegendPercent" class="custom-legend"></div>
-                </div>
+    <!-- Numbers Chart -->
+    <div class="card">
+    <h3 class="chart-header">Exam Status</h3>
+<div class="toggle-container">
+    <button id="btnCount" onclick="toggleSummaryChart('count')" class="toggle-btn active-btn">Count</button>
+    <button id="btnPercent" onclick="toggleSummaryChart('percent')" class="toggle-btn">Percentage</button>
+</div>
+
+    <div style="height: 200px; width: 100%; position: relative;">
+        <canvas id="summaryToggleChart"></canvas>
+    </div>
+    <div id="summaryLegendToggle" class="custom-legend"></div>
+</div>
 
             </div>
 
@@ -769,7 +808,7 @@
         <div class="bottom-row">
 
             <!-- Exam Day Overview (Bar Chart) -->
-            <div class="card">
+            <div class="card" style="height: 95%;">
                 <h3 class="chart-header" style="text-align: left;">Daily Script Completion
                 </h3>
                 <div style="height: 350px; width: 100%; position: relative;">
@@ -778,7 +817,7 @@
             </div>
 
             <!-- Total Scheduled vs Completed -->
-            <div class="card">
+            <div class="card" style="height: 95%;">
                 <h3 class="chart-header">Student Exam Completion</h3>
                 <div style="height: 200px; width: 100%; position: relative;">
                     <canvas id="totalPieChart"></canvas>
@@ -800,13 +839,34 @@
                 </div>
 
             </div>
-            <div class="card">
+            <div class="card" style="height: 95%;">
                 <h3 class="chart-header">Evaluation Status</h3>
-                <div style="height: 200px; width: 100%; position: relative;">
+                <div style="height: 300px; width: 100%; position: relative;">
                     <canvas id="evaluatedPieChart"></canvas>
                 </div>
             </div>
-
+        <div id="statCardModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Students by Status</h2>
+                <button class="close-btn" onclick="toggleStatCardModal(false)">×</button>
+            </div>
+            <table id="statCardTable" style="width:100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th>S.No</th>
+                        <th>Reg No</th>
+                        <th>Batch</th>
+                        <th>Course Code</th>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>Email</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
 
         </div>
 
@@ -846,7 +906,8 @@
                         <th>Register No</th>
                         <th>Name</th>
                         <th>Course</th>
-                        <th>Status</th>
+                        <th>status</th>
+
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -856,6 +917,7 @@
 
     <!-- ================= JAVASCRIPT LOGIC ================= -->
     <script>
+        Chart.register(ChartDataLabels);
         // --- CONSTANTS & CONFIG ---
         const COLORS = {
             completed: '#22c55e',
@@ -926,6 +988,65 @@
                     ]
                 }
                 ,
+                studentsByStatus: {
+                    scheduled: [
+    { batch: "2022-2025", courseCode: "CS101", regNo: "R001", name: "Alice Johnson", mobile: "9876543210", email: "alice@gmail.com" },
+    { batch: "2022-2025", courseCode: "MATH201", regNo: "R002", name: "Bob Smith", mobile: "9876501234", email: "bob@gmail.com" },
+    { batch: "2022-2025", courseCode: "PHY301", regNo: "R010", name: "Charlie Brown", mobile: "9876599999", email: "charlie@gmail.com" },
+    { batch: "2022-2025", courseCode: "ENG101", regNo: "R020", name: "Diana Prince", mobile: "9876512345", email: "diana@gmail.com" },
+    { batch: "2022-2025", courseCode: "BIO202", regNo: "R030", name: "Edward Norton", mobile: "9876522222", email: "edward@gmail.com" },
+    // Add more students as needed
+  ],
+    completed: [
+        {
+            batch: "2022-2025",
+            courseCode: "CS101",
+            regNo: "R001",
+            name: "Alice Johnson",
+            mobile: "9876543210",
+            email: "alice@gmail.com"
+        },
+        {
+            batch: "2022-2025",
+            courseCode: "MATH201",
+            regNo: "R002",
+            name: "Bob Smith",
+            mobile: "9876501234",
+            email: "bob@gmail.com"
+        }
+    ],
+    inProgress: [
+        {
+            batch: "2022-2025",
+            courseCode: "PHY301",
+            regNo: "R010",
+            name: "Charlie Brown",
+            mobile: "9876599999",
+            email: "charlie@gmail.com"
+        }
+    ],
+    yetToStart: [
+        {
+            batch: "2022-2025",
+            courseCode: "ENG101",
+            regNo: "R020",
+            name: "Diana Prince",
+            mobile: "9876512345",
+            email: "diana@gmail.com"
+        }
+    ],
+    halted: [
+        {
+            batch: "2022-2025",
+            courseCode: "BIO202",
+            regNo: "R030",
+            name: "Edward Norton",
+            mobile: "9876522222",
+            email: "edward@gmail.com"
+        }
+    ]
+}
+
                
 
 }
@@ -981,14 +1102,19 @@
             const total = d.completed + d.inProgress + d.yetToStart + d.halted;
 
             const cardsConfig = [
-                { label: " Scheduled Exam", value: total, icon: ICONS.calendar, colorClass: "bg-gray-soft", textClass: "text-gray" },
-                { label: " Completed", value: d.completed, icon: ICONS.check, colorClass: "bg-green-soft", textClass: "text-green" },
-                { label: "Ongoing ", value: d.inProgress, icon: ICONS.clock, colorClass: "bg-yellow-soft", textClass: "text-yellow" },
-                { label: "Halted", value: d.halted, icon: ICONS.pause, colorClass: "bg-red-soft", textClass: "text-red" },
-            ];
+    { key: "scheduled", label: "Scheduled Exam", value: total, icon: ICONS.calendar, colorClass: "bg-gray-soft", textClass: "text-gray" },
+    { key: "completed", label: "Completed", value: d.completed, icon: ICONS.check, colorClass: "bg-green-soft", textClass: "text-green" },
+    { key: "inProgress", label: "Ongoing", value: d.inProgress, icon: ICONS.clock, colorClass: "bg-yellow-soft", textClass: "text-yellow" },
+  { key: "yetToStart", label: "Yet To Start", value: d.yetToStart, icon: ICONS.pause, colorClass: "bg-light-brown", textClass: "text-light-brown" },
+
+    { key: "halted", label: "Halted", value: d.halted, icon: ICONS.pause, colorClass: "bg-red-soft", textClass: "text-red" },
+];
+
 
             container.innerHTML = cardsConfig.map(c => `
-                <div class="card stat-card ${c.colorClass}" style="border:none;">
+                <div class="card stat-card ${c.colorClass}" 
+     style="border:none; cursor:pointer;"
+     onclick="openStatCardModal('${c.key}')">
                     <div class="stat-content">
                         <div class="stat-label">${c.label}</div>
                         <div class="stat-value ${c.textClass}">${c.value}</div>
@@ -999,132 +1125,194 @@
                 </div>
             `).join('');
         }
-        function renderCourseProgress() {
+       function renderCourseProgress() {
     const container = document.getElementById('courseStatsContainer');
+    container.innerHTML = `<canvas id="courseHeatmapChart" style="width:100%; height:300px;"></canvas>`;
+
     const courses = appState.data.courseData;
+    const statuses = ['Completed', 'In Progress', 'Yet to Start', 'Halted'];
 
-    container.innerHTML = courses.map(c => {
-        const total = c.completed + c.inProgress + c.yetToStart + c.halted;
-        return `
-        <div class="course-card card" style="border:none;">
-            <div class="course-title">${c.courseCode}</div>
-            <div style="width: 100%; height: 120px; position: relative;">
-                <canvas id="courseChart-${c.courseCode}"></canvas>
-            </div>
-        </div>
-        `;
-    }).join('');
+    const data = [];
+    courses.forEach((course) => {
+    data.push({ x: 'Completed', y: course.courseCode, v: course.completed });
+data.push({ x: 'In Progress', y: course.courseCode, v: course.inProgress });
+data.push({ x: 'Yet to Start', y: course.courseCode, v: course.yetToStart });
+data.push({ x: 'Halted', y: course.courseCode, v: course.halted });
 
-    // Create small bar/doughnut charts for each course
-    courses.forEach(c => {
-        const ctx = document.getElementById(`courseChart-${c.courseCode}`).getContext('2d');
-        const dataValues = [c.completed, c.inProgress, c.yetToStart, c.halted];
-        const bgColors = [COLORS.completed, COLORS.inProgress, COLORS.yetToStart, COLORS.halted];
+});
 
-        if (!appState.charts[`course-${c.courseCode}`]) {
-            appState.charts[`course-${c.courseCode}`] = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Completed', 'In Progress', 'Yet to Start', 'Halted'],
-                    datasets: [{
-                        data: dataValues,
-                        backgroundColor: bgColors,
-                        borderWidth: 0
-                    }]
+
+
+    const ctx = document.getElementById('courseHeatmapChart').getContext('2d');
+
+    if (appState.charts.courseHeatmap) appState.charts.courseHeatmap.destroy();
+
+    appState.charts.courseHeatmap = new Chart(ctx, {
+        type: 'matrix',
+        data: {
+            datasets: [{
+                label: 'Course Progress Heatmap',
+                data: data,
+                backgroundColor: function(ctx) {
+                    const value = ctx.dataset.data[ctx.dataIndex].v;
+                    if (value > 40) return COLORS.completed;
+                    if (value > 20) return 'yellow';
+                    if (value > 5) return COLORS.yetToStart;
+                    return COLORS.halted;
                 },
-                plugins: [ChartDataLabels],
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        datalabels: {
-                            color: '#000',
-                            font: { weight: 'bold', size: 10 },
-                            formatter: (value) => value
-                        },
-                        tooltip: { enabled: true }
+                 borderWidth: 4,
+    borderColor: '#ffffff',
+                width: ({ chart }) => (chart.chartArea || {}).width / statuses.length - 20,
+                height: ({ chart }) => (chart.chartArea || {}).height / courses.length - 10
+                
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+    type: 'category',
+    position: 'top',
+    labels: ['Completed', 'In Progress', 'Yet to Start', 'Halted'],
+    grid: { display: false },
+    ticks: {
+        font: { size: 12, weight: 'bold' },
+        padding: 10 // <-- increase this to move labels UP
+    }
+},
+y: {
+    type: 'category',
+    labels: courses.map(c => c.courseCode), // courses on Y
+}
+            },
+            plugins: {
+                datalabels: {
+        color: '#fffff',        // color of text, choose black or white depending on bg
+        anchor: 'center',     // center the label in the box
+        align: 'center',
+        font: {
+            weight: 'bold',
+            size: 12
+        },
+        formatter: function(value, ctx) {
+            return value.v;   // show the 'v' value in each cell
+        }
+    },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const course = ctx.raw.y;
+                            const status = ctx.raw.x;
+                            const value = ctx.raw.v;
+                            return `${course} - ${status}: ${value}`;
+                        }
                     }
-                }
-            });
-        } else {
-            // Update existing chart
-            const chart = appState.charts[`course-${c.courseCode}`];
-            chart.data.datasets[0].data = dataValues;
-            chart.update();
+                },
+                legend: { display: false }
+            }
         }
     });
 }
 
+
+function openStatCardModal(statusKey) {
+    const modal = document.getElementById('statCardModal');
+    const tbody = document.querySelector('#statCardTable tbody');
+
+    // Clear old rows
+    tbody.innerHTML = '';
+
+    const students = appState.data.studentsByStatus[statusKey] || [];
+
+    students.forEach((s, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${s.regNo}</td>
+            <td>${s.batch}</td>
+            <td>${s.courseCode}</td>
+            <td>${s.name}</td>
+            <td>${s.mobile}</td>
+            <td>${s.email}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Initialize DataTable
+    if ($.fn.DataTable.isDataTable('#statCardTable')) {
+        $('#statCardTable').DataTable().destroy();
+    }
+
+    $('#statCardTable').DataTable({
+        pageLength: 10,
+        lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
+        order: [[0, 'asc']],
+    });
+
+    modal.classList.add('active');
+}
+
+function toggleStatCardModal(show) {
+    const modal = document.getElementById('statCardModal');
+    if (show) {
+        modal.classList.add('active');
+    } else {
+        modal.classList.remove('active');
+        if ($.fn.DataTable.isDataTable('#statCardTable')) {
+            $('#statCardTable').DataTable().destroy();
+        }
+    }
+}
+
+
         function openStudentModal() {
-            const modal = document.getElementById('studentModal');
-            const tbody = document.querySelector('#studentTable tbody');
+    const modal = document.getElementById('studentModal');
+    const tbody = document.querySelector('#studentTable tbody');
 
-            // Destroy existing DataTable if it exists
-            if ($.fn.DataTable.isDataTable('#studentTable')) {
-                $('#studentTable').DataTable().destroy();
-            }
+    // Destroy existing DataTable if it exists
+    if ($.fn.DataTable.isDataTable('#studentTable')) {
+        $('#studentTable').DataTable().destroy();
+    }
 
-            tbody.innerHTML = '';
+    tbody.innerHTML = '';
 
-            // Generate more comprehensive mock data for demonstration
-            const mockStudents = [
-                { sno: 1, regNo: "R001", name: "Alice Johnson", course: "CS101", status: "Pass" },
-                { sno: 2, regNo: "R002", name: "Bob Smith", course: "MATH201", status: "Pass" },
-                { sno: 3, regNo: "R003", name: "Charlie Brown", course: "PHY301", status: "Fail" },
-                { sno: 4, regNo: "R004", name: "Diana Prince", course: "ENG101", status: "Pass" },
-                { sno: 5, regNo: "R005", name: "Edward Norton", course: "BIO202", status: "Pass" },
-                { sno: 6, regNo: "R006", name: "Fiona Apple", course: "CHEM301", status: "Pass" },
-                { sno: 7, regNo: "R007", name: "George Martin", course: "CS101", status: "Fail" },
-                { sno: 8, regNo: "R008", name: "Hannah Montana", course: "MATH201", status: "Pass" },
-                { sno: 9, regNo: "R009", name: "Ian McKellen", course: "PHY301", status: "Pass" },
-                { sno: 10, regNo: "R010", name: "Julia Roberts", course: "ENG101", status: "Pass" },
-                { sno: 11, regNo: "R011", name: "Kevin Hart", course: "BIO202", status: "Fail" },
-                { sno: 12, regNo: "R012", name: "Laura Croft", course: "CHEM301", status: "Pass" },
-                { sno: 13, regNo: "R013", name: "Michael Jordan", course: "CS101", status: "Pass" },
-                { sno: 14, regNo: "R014", name: "Nancy Drew", course: "MATH201", status: "Pass" },
-                { sno: 15, regNo: "R015", name: "Oscar Wilde", course: "PHY301", status: "Pass" },
-                { sno: 16, regNo: "R016", name: "Patricia Hill", course: "ENG101", status: "Fail" },
-                { sno: 17, regNo: "R017", name: "Quincy Jones", course: "BIO202", status: "Pass" },
-                { sno: 18, regNo: "R018", name: "Rachel Green", course: "CHEM301", status: "Pass" },
-                { sno: 19, regNo: "R019", name: "Samuel Jackson", course: "CS101", status: "Pass" },
-                { sno: 20, regNo: "R020", name: "Tina Turner", course: "MATH201", status: "Pass" }
-            ];
+    const students = appState.data.evaluatedData.studentList || [];
 
-            mockStudents.forEach(student => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-            <td>${student.sno}</td>
+    students.forEach((student, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${index + 1}</td>
             <td>${student.regNo}</td>
             <td>${student.name}</td>
             <td>${student.course}</td>
-            <td><span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background-color: ${student.status === 'Pass' ? 'var(--color-green-bg)' : 'var(--color-red-bg)'}; color: ${student.status === 'Pass' ? 'var(--color-green-text)' : 'var(--color-red-text)'}">${student.status}</span></td>
+            <td>${student.status}</td>
         `;
-                tbody.appendChild(tr);
-            });
+        tbody.appendChild(tr);
+    });
 
-            // Initialize DataTable with custom options
-            $('#studentTable').DataTable({
-                pageLength: 10,
-                lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
-                order: [[0, 'asc']],
-                language: {
-                    search: "Search:",
-                    lengthMenu: "Show _MENU_ entries",
-                    info: "Showing _START_ to _END_ of _TOTAL_ students",
-                    infoEmpty: "Showing 0 to 0 of 0 students",
-                    infoFiltered: "(filtered from _MAX_ total students)",
-                    paginate: {
-                        first: "First",
-                        last: "Last",
-                        next: "Next",
-                        previous: "Previous"
-                    }
-                }
-            });
-
-            modal.classList.add('active');
+    $('#studentTable').DataTable({
+        pageLength: 10,
+        lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
+        order: [[0, 'asc']],
+        language: {
+            search: "Search:",
+            lengthMenu: "Show _MENU_ entries",
+            info: "Showing _START_ to _END_ of _TOTAL_ students",
+            infoEmpty: "Showing 0 to 0 of 0 students",
+            infoFiltered: "(filtered from _MAX_ total students)",
+            paginate: {
+                first: "First",
+                last: "Last",
+                next: "Next",
+                previous: "Previous"
+            }
         }
+    });
+
+    modal.classList.add('active');
+}
+
 
         function toggleStudentModal(show) {
             const modal = document.getElementById('studentModal');
@@ -1148,94 +1336,70 @@
         }
 
 
-        function renderSummaryCharts() {
-            const d = appState.data.summary;
-            const labels = ['Completed', 'In Progress', 'Yet to Start', 'Halted'];
-            const dataValues = [d.completed, d.inProgress, d.yetToStart, d.halted];
-            const bgColors = [COLORS.completed, COLORS.inProgress, COLORS.yetToStart, COLORS.halted];
+       let currentChartType = 'count'; // default
 
-            // Map keys back for helper
-            const keys = ['completed', 'inProgress', 'yetToStart', 'halted'];
-            const chartData = labels.map((l, i) => ({ name: l, value: dataValues[i], key: keys[i] }));
+function renderSummaryChart() {
+    const d = appState.data.summary;
+    const labels = ['Completed', 'In Progress', 'Yet to Start', 'Halted'];
+    const valuesCount = [d.completed, d.inProgress, d.yetToStart, d.halted];
+    const total = valuesCount.reduce((a, b) => a + b, 0);
+    const valuesPercent = valuesCount.map(v => total > 0 ? Number(((v / total) * 100).toFixed(1)) : 0);
+    const bgColors = [COLORS.completed, COLORS.inProgress, COLORS.yetToStart, COLORS.halted];
+    const keys = ['completed', 'inProgress', 'yetToStart', 'halted'];
+    const chartData = labels.map((l, i) => ({ name: l, value: valuesCount[i], key: keys[i] }));
 
-            // 1. Pie Chart (Numbers)
-            const ctxPie = document.getElementById('summaryPieChart').getContext('2d');
-            appState.charts.pie = new Chart(ctxPie, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: dataValues,
-                        backgroundColor: bgColors,
-                        borderWidth: 0
-                    }]
-                },
-                plugins: [ChartDataLabels],
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw}` }
-                        },
-                        // Click event for drill down
-                        onClick: (e, elements) => {
-                            if (elements.length > 0) {
-                                const index = elements[0].index;
-                                if (index === 0) openDrillDown(); // 0 is Completed
-                            }
-                        }
+    const ctx = document.getElementById('summaryToggleChart').getContext('2d');
+
+    if (appState.charts.summaryToggle) appState.charts.summaryToggle.destroy();
+
+    appState.charts.summaryToggle = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: currentChartType === 'count' ? valuesCount : valuesPercent,
+                backgroundColor: bgColors,
+                borderWidth: 0
+            }]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => currentChartType === 'count'
+                            ? `${ctx.label}: ${ctx.raw}`
+                            : `${ctx.label}: ${ctx.raw}%`
                     }
-                }
-            });
-            createLegend('summaryLegendNumbers', chartData, keys, COLORS);
-
-            // 2. Doughnut Chart (Percentage)
-            const total = dataValues.reduce((a, b) => a + b, 0);
-            const percentData = dataValues.map(v => total > 0 ? Number(((v / total) * 100).toFixed(1)) : 0);
-
-            const ctxDoughnut = document.getElementById('summaryDoughnutChart').getContext('2d');
-            appState.charts.doughnut = new Chart(ctxDoughnut, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: percentData,
-                        backgroundColor: bgColors,
-                        borderWidth: 0
-
-                    }]
                 },
-                plugins: [ChartDataLabels],
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    
-
-                    onClick: (e, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            if (index === 0) openDrillDown(); // Completed
-                        }
-                    },
-
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw}%` },
-                            datalabels: {   // << ADD THIS
-                                color: '#fff',
-                                font: { weight: 'bold', size: 14 },
-                                formatter: (value, context) => value
-                            },
-                        }
-                    }
+                datalabels: {
+                    color: '#000',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: (value) => currentChartType === 'count' ? value : value + '%'
                 }
-
-            });
-            createLegend('summaryLegendPercent', chartData, keys, COLORS);
+            },
+            onClick: (e, elements) => {
+                if (elements.length > 0 && elements[0].index === 0) openDrillDown(); // Completed
+            }
         }
+    });
+
+    createLegend('summaryLegendToggle', chartData, keys, COLORS);
+}
+
+// Toggle button function
+function toggleSummaryChart(type) {
+    currentChartType = type;
+
+    document.getElementById('btnCount').classList.toggle('active-btn', type === 'count');
+    document.getElementById('btnPercent').classList.toggle('active-btn', type === 'percent');
+
+    renderSummaryChart();
+}
+
 
         function renderCourseStats() {
             const container = document.getElementById('courseStatsContainer');
@@ -1350,23 +1514,21 @@
             const barData = appState.data.examDayData;
             const ctxBar = document.getElementById('examDayBarChart').getContext('2d');
             appState.charts.bar = new Chart(ctxBar, {
-                type: 'bar',
+                type: 'line',
                 data: {
                     labels: barData.map(d => d.day),
                     datasets: [
-                        {
-                            label: 'Scripts Evaluated',
-                            data: barData.map(d => d.scriptCount),
-                            backgroundColor: COLORS.blue,
-                            borderRadius: 4
-                        },
-                        {
-                            label: 'Completed Scripts',
-                            data: barData.map(d => d.completedCount),
-                            backgroundColor: COLORS.completed,
-                            borderRadius: 4
-                        }
-                    ]
+    {
+        label: 'Evaluated Scripts',
+        data: barData.map(d => d.completedCount),
+        borderColor: COLORS.completed,
+        backgroundColor: 'rgba(34, 197, 94, 0.2)', // optional shaded area
+        tension: 0.4,      // smooth curve
+        fill: true,        // fill under curve
+        pointRadius: 5,
+        pointHoverRadius: 7
+    }
+]
                 },
                 plugins: [ChartDataLabels],
                 options: {
@@ -1489,38 +1651,28 @@ const totalCompleted = d.completed;
         }
 
         function updateDashboard() {
-            // 1. Get Data
-            appState.data = generateMockData(appState.selectedPeriod);
+    appState.data = generateMockData(appState.selectedPeriod);
 
-            // 2. Cleanup Charts
-            destroyCharts();
+    destroyCharts();
 
-            // 3. Render All Sections
-            renderSummaryCards();
-            renderSummaryCharts();
-            renderCourseStats();
-            renderBottomRow();
-            renderEvaluatedChart();
-            renderCourseCards(); 
-        }
+    renderSummaryCards();
+    renderSummaryChart();
+    renderCourseProgress(); // only this
+    renderBottomRow();
+    renderEvaluatedChart();
+}
 
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('periodSelect').addEventListener('change', handlePeriodChange);
 
-        // --- INITIALIZATION ---
+    appState.data = generateMockData(appState.selectedPeriod);
+    renderSummaryCards();
+    renderSummaryChart();
+    renderCourseProgress(); // only this
+    renderBottomRow();
+    renderEvaluatedChart();
+});
 
-        window.addEventListener('DOMContentLoaded', () => {
-            const select = document.getElementById('periodSelect');
-            select.addEventListener('change', handlePeriodChange);
-
-            // Set initial data and render
-            appState.data = generateMockData(appState.selectedPeriod);
-            renderSummaryCards();
-            renderSummaryCharts();
-            renderCourseStats();
-            renderBottomRow();
-            renderEvaluatedChart();
-            renderCourseCards(); 
-            renderCourseProgress();
-        });
     </script>
 </body>
 

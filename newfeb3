@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Progress Dashboard</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+    <!-- DataTables CDN -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+
+    <style>
+        /* ================= CSS RESET & VARIABLES ================= */
+        :root {
+            --primary-font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --color-gray-50: #f9fafb;
+            --color-gray-100: #f3f4f6;
+            --color-gray-200: #e5e7eb;
+            --color-gray-300: #d1d5db;
+            --color-gray-500: #6b7280;
+            --color-gray-700: #374151;
+            --color-gray-800: #1f2937;
+            --color-white: #ffffff;
+
+            /* Status Colors */
+            --color-green: #22c55e;
+            --color-green-bg: #dcfce7;
+            --color-green-text: #15803d;
+            --color-yellow: #eab308;
+            --color-yellow-bg: #fef9c3;
+            --color-yellow-text: #a16207;
+            --color-orange: #f59e0b;
+            --color-red: #ef4444;
+            --color-red-bg: #fee2e2;
+            --color-red-text: #b91c1c;
+            --color-blue: #3b82f6;
+            --color-blue-bg: #dbeafe;
+            --color-blue-text: #1d4ed8;
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --radius: 0.75rem;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--primary-font);
+            background-color: var(--color-gray-50);
+            color: var(--color-gray-800);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            /* FIX: Prevents horizontal scroll */
+        }
+
+        /* ================= LAYOUT COMPONENTS ================= */
+        .container {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            /* FIX: Smaller padding for mobile */
+            padding-bottom: 3rem;
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                padding: 0 2.5rem;
+            }
+
+            /* Restore padding on desktop */
+        }
+
+        /* Header */
+        header {
+            background-color: var(--color-white);
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            box-shadow: var(--shadow-sm);
+            padding: 1.25rem 1rem;
+            /* FIX: Adjusted padding */
+            width: 100%;
+        }
+
+        @media (min-width: 768px) {
+            header {
+                padding: 1.25rem 2rem;
+            }
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            /* FIX: Allow wrapping on very small screens */
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            /* FIX: Smaller font for mobile */
+            font-weight: 600;
+            color: var(--color-gray-800);
+        }
+
+        @media (min-width: 640px) {
+            .header-title h1 {
+                font-size: 1.5rem;
+            }
+        }
+
+        .header-title p {
+            font-size: 0.875rem;
+            color: var(--color-gray-500);
+            margin-top: 0.25rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .badge-pill {
+            padding: 0.5rem 1rem;
+            /* FIX: Reduced padding */
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background-color: var(--color-green-bg);
+            color: var(--color-green-text);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        .badge-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            background-color: var(--color-green);
+            border-radius: 50%;
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: var(--color-white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-gray-200);
+            transition: box-shadow 0.2s;
+            padding: 1.5rem;
+            height: 100%;
+            overflow: hidden;
+            /* FIX: Ensure content doesn't spill out */
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        /* ================= DASHBOARD GRID ================= */
+        .dashboard-section {
+            margin-top: 2.5rem;
+        }
+
+        .summary-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            /* FIX: Wraps selector to next line on mobile */
+        }
+
+        /* Summary Cards */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 1rem;
+            flex: 1;
+            min-width: 280px;
+            /* FIX: Min width to prevent squishing */
+        }
+
+        @media (min-width: 640px) {
+            .cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .cards-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .stat-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: auto;
+            /* FIX: Allow height to adjust */
+            min-height: 6rem;
+            width: 100%;
+            padding: 1rem;
+            border-radius: var(--radius);
+        }
+
+        .stat-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            justify-content: center;
+            gap: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--color-gray-700);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            /* FIX: Adjusted for mobile */
+            font-weight: 700;
+        }
+
+        @media (min-width: 768px) {
+            .stat-value {
+                font-size: 1.875rem;
+            }
+        }
+
+        .stat-icon {
+            width: 2rem;
+            height: 2rem;
+            flex-shrink: 0;
+        }
+
+        /* Period Selector */
+        .period-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            background: var(--color-white);
+            padding: 1rem;
+            border-radius: var(--radius);
+
+            box-shadow: var(--shadow-sm);
+            /* FIX: Removed min-width, added max-width to ensure it fits but doesn't stretch */
+            width: 100%;
+            max-width: 16rem;
+            flex: 0 0 auto;
+        }
+
+        .period-selector label {
+            font-weight: 500;
+            font-size: 0.875rem;
+            white-space: nowrap;
+        }
+
+        .custom-select {
+            width: 100%;
+            padding: 0.5rem 2rem 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            border: 1px solid var(--color-gray-300);
+            border-radius: 0.375rem;
+            background-color: var(--color-white);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            appearance: none;
+            outline: none;
+        }
+
+        .custom-select:focus {
+            border-color: var(--color-blue);
+            ring: 2px solid var(--color-blue-bg);
+        }
+
+        /* ================= MAIN CHART ROW ================= */
+        .main-charts-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-top: 2.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .main-charts-row {
+                grid-template-columns: 2fr 3fr;
+            }
+        }
+
+        .summary-charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .chart-header {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        /* Legend Custom */
+        .custom-legend {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            /* FIX: Tighter gap for mobile */
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            /* FIX: Smaller text */
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .legend-item:hover {
+            background-color: var(--color-gray-100);
+        }
+
+        .legend-dot {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+        }
+
+        /* Detailed Stats Grid */
+        .detailed-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .detailed-stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1280px) {
+            .detailed-stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .course-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .course-title {
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            /* FIX: Prevent overflow on small cards */
+        }
+
+        .course-meta {
+            text-align: center;
+            font-size: 0.75rem;
+            margin-top: -1rem;
+            color: var(--color-gray-700);
+        }
+
+        /* ================= BOTTOM ROW ================= */
+        .bottom-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-top: 2.5rem;
+        }
+
+        /* Desktop – 3 charts in one row */
+        @media (min-width: 1024px) {
+            .bottom-row {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+
+        .summary-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .metric-box {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--color-gray-500);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-val {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        /* ================= MODAL ================= */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            padding: 2rem;
+            transition: background-color 0.3s ease-out;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(0);
+            }
+
+            to {
+                transform: translateY(100%);
+            }
+        }
+
+        .modal-content {
+            background-color: var(--color-white);
+            border-radius: var(--radius);
+            width: 95%;
+            max-width: 1200px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 2rem;
+            position: relative;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+            margin: 0 auto;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-overlay.closing .modal-content {
+            transform: translateY(100%);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--color-gray-500);
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background-color: var(--color-gray-100);
+            color: var(--color-gray-800);
+        }
+
+        /* Helper Colors for Text */
+        .text-green {
+            color: var(--color-green);
+        }
+
+        .text-yellow {
+            color: var(--color-yellow);
+        }
+
+        .text-orange {
+            color: var(--color-orange);
+        }
+
+        .text-red {
+            color: var(--color-red);
+        }
+
+        .text-gray {
+            color: var(--color-gray-700);
+        }
+
+        .text-blue {
+            color: var(--color-blue);
+        }
+
+        .text-gray-600 {
+            color: var(--color-gray-500);
+        }
+
+        .bg-green-soft {
+            background-color: #dcfce7;
+        }
+
+        .bg-yellow-soft {
+            background-color: #fef9c3;
+        }
+
+        .bg-red-soft {
+            background-color: #fee2e2;
+        }
+
+        .bg-gray-soft {
+            background-color: #f3f4f6;
+        }
+
+        /* ================= DATATABLE STYLES ================= */
+        #studentTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        #studentTable thead {
+            background-color: var(--color-gray-100);
+        }
+
+        #studentTable th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--color-gray-700);
+            border-bottom: 2px solid var(--color-gray-300);
+        }
+
+        #studentTable td {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            border-bottom: 1px solid var(--color-gray-200);
+        }
+
+        #studentTable tbody tr:hover {
+            background-color: var(--color-gray-50);
+        }
+
+        /* DataTables custom styling */
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_filter,
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .dataTables_wrapper .dataTables_filter input {
+            padding: 0.5rem;
+            border: 1px solid var(--color-gray-300);
+            border-radius: 0.375rem;
+            margin-left: 0.5rem;
+        }
+
+        .dataTables_wrapper .dataTables_length select {
+            padding: 0.5rem;
+            border: 1px solid var(--color-gray-300);
+            border-radius: 0.375rem;
+            margin: 0 0.5rem;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            padding: 0.5rem 0.75rem;
+            margin: 0 0.25rem;
+            border-radius: 0.375rem;
+            border: 1px solid var(--color-gray-300);
+            background-color: var(--color-white);
+            cursor: pointer;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background-color: var(--color-gray-100);
+            border-color: var(--color-gray-400);
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background-color: var(--color-blue);
+            color: white;
+            border-color: var(--color-blue);
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            background-color: var(--color-blue);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ================= HEADER ================= -->
+    <header>
+        <div class="header-top">
+            <div class="header-title">
+                <h1>Jain Online - Exam Progress Dashboard</h1>
+                <p>Admin View • Range : 01 Feb 2026 - 30 Apr 2026</p>
+            </div>
+
+            <div class="header-right">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
+                    <div class="card"
+                        style="padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem; height: auto;">
+                        <!-- Calendar Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="text-gray-600">
+                            <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                            <line x1="16" x2="16" y1="2" y2="6" />
+                            <line x1="8" x2="8" y1="2" y2="6" />
+                            <line x1="3" x2="21" y1="10" y2="10" />
+                        </svg>
+                        <span style="font-size: 0.875rem; color: var(--color-gray-700);">Feb 2026 – Apr 2026</span>
+                    </div>
+                    <div class="badge-pill">
+                        <span class="badge-dot"></span>
+                        Live Evaluation
+                    </div>
+                </div>
+
+                <!-- Profile Icon -->
+                <div
+                    style="width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="text-gray-700">
+                        <path d="M18 20a6 6 0 0 0-12 0" />
+                        <circle cx="12" cy="10" r="4" />
+                        <circle cx="12" cy="10" r="4" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- ================= SUMMARY CARDS + SELECTOR ================= -->
+        <div class="dashboard-section">
+            <div class="summary-header-row">
+                <!-- Left: Cards -->
+                <div class="cards-grid" id="summaryCardsContainer">
+                    <!-- Cards injected via JS -->
+                </div>
+
+                <!-- Right: Selector -->
+                <div class="period-selector">
+                    <label for="periodSelect">Assessment/Exam Period</label>
+                    <select id="periodSelect" class="custom-select">
+                        <option value="Feb26">Feb 2026</option>
+                        <option value="Mar26">Mar 2026</option>
+                        <option value="Apr26">Apr 2026</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MAIN CHART ROW ================= -->
+        <div class="main-charts-row">
+
+            <!-- Left Column: Exam Summary Charts -->
+            <div class="summary-charts-container">
+
+                <!-- Numbers Chart -->
+                <div class="card">
+                    <h3 class="chart-header">Exam Status - Numbers</h3>
+                    <div style="height: 250px; width: 100%; position: relative;">
+                        <canvas id="summaryPieChart"></canvas>
+                    </div>
+                    <div id="summaryLegendNumbers" class="custom-legend"></div>
+                </div>
+
+                <!-- Percentage Chart -->
+                <div class="card">
+                    <h3 class="chart-header">Exam Status - Percentage</h3>
+                    <div style="height: 250px; width: 100%; position: relative;">
+                        <canvas id="summaryDoughnutChart"></canvas>
+                    </div>
+                    <div id="summaryLegendPercent" class="custom-legend"></div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Detailed Stats (Courses) -->
+            <div class="card" style="border-color: var(--color-gray-300);">
+                <h3 class="chart-header" style="margin-top: 1.25rem;">Progress by Course Code</h3>
+                <div class="detailed-stats-grid" id="courseStatsContainer">
+                    <!-- Course cards injected via JS -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= BOTTOM ROW ================= -->
+        <div class="bottom-row">
+
+            <!-- Exam Day Overview (Bar Chart) -->
+            <div class="card">
+                <h3 class="chart-header" style="text-align: left;">Individual Script With Completion Count By Exam Day
+                </h3>
+                <div style="height: 350px; width: 100%; position: relative;">
+                    <canvas id="examDayBarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Total Scheduled vs Completed -->
+            <div class="card">
+                <h3 class="chart-header">Total Scheduled Students vs Completed</h3>
+                <div style="height: 300px; width: 100%; position: relative;">
+                    <canvas id="totalPieChart"></canvas>
+                </div>
+
+                <div class="summary-metrics">
+                    <div class="metric-box" style="background-color: var(--color-green-bg);">
+                        <div class="metric-label">Students Scheduled</div>
+                        <div class="metric-val text-green" id="metricScheduled">0</div>
+                    </div>
+                    <div class="metric-box" style="background-color: var(--color-blue-bg);">
+                        <div class="metric-label">Students Completed</div>
+                        <div class="metric-val text-blue" id="metricCompleted">0</div>
+                    </div>
+                    <div class="metric-box" style="background-color: var(--color-gray-100);">
+                        <div class="metric-label">Completion Rate</div>
+                        <div class="metric-val text-gray" id="metricRate">0%</div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="card">
+                <h3 class="chart-header">Scripts Evaluated vs Non-Evaluated</h3>
+                <div style="height: 300px; width: 100%; position: relative;">
+                    <canvas id="evaluatedPieChart"></canvas>
+                </div>
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+    </div>
+
+    <!-- ================= DRILL DOWN MODAL ================= -->
+    <div id="drillDownModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Completed Exams by Date</h2>
+                <button class="close-btn" onclick="toggleModal(false)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div style="height: 400px; width: 100%; position: relative;">
+                <canvas id="drillDownChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div id="studentModal" class="modal-overlay" onclick="if(event.target === this) toggleStudentModal(false)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Evaluated Students</h2>
+                <button class="close-btn" onclick="toggleStudentModal(false)">×</button>
+            </div>
+            <table id="studentTable" style="width:100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th>S.No</th>
+                        <th>Register No</th>
+                        <th>Name</th>
+                        <th>Course</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const COLORS = {
+            completed: '#22c55e',
+            inProgress: '#eab308',
+            yetToStart: '#f59e0b',
+            halted: '#ef4444',
+            blue: '#3b82f6',
+            gray: '#94a3b8'
+        };
+
+        const ICONS = {
+            calendar: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>',
+            check: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+            clock: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+            pause: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+        };
+
+        // --- STATE & DATA GENERATION ---
+        let appState = {
+            selectedPeriod: 'Feb26',
+            data: null,
+            charts: {} // Store chart instances
+        };
+
+        const generateMockData = (period) => {
+            const baseDate = period === "Feb26" ? "2026-02" : period === "Mar26" ? "2026-03" : "2026-04";
+
+            const summary = {
+                completed: period === "Feb26" ? 125 : period === "Mar26" ? 98 : 67,
+                inProgress: period === "Feb26" ? 45 : period === "Mar26" ? 52 : 38,
+                yetToStart: period === "Feb26" ? 30 : period === "Mar26" ? 50 : 95,
+                halted: period === "Feb26" ? 5 : period === "Mar26" ? 8 : 12,
+            };
+
+            return {
+                summary,
+                drillDownData: [
+                    { date: `${baseDate}-01`, count: 12 },
+                    { date: `${baseDate}-05`, count: 18 },
+                    { date: `${baseDate}-10`, count: 25 },
+                    { date: `${baseDate}-15`, count: 30 },
+                    { date: `${baseDate}-20`, count: 22 },
+                    { date: `${baseDate}-25`, count: 18 },
+                ],
+                courseData: [
+                    { courseCode: "CS101", completed: 45, inProgress: 10, yetToStart: 5, halted: 2 },
+                    { courseCode: "MATH201", completed: 38, inProgress: 12, yetToStart: 8, halted: 1 },
+                    { courseCode: "PHY301", completed: 42, inProgress: 8, yetToStart: 7, halted: 2 },
+                    { courseCode: "ENG101", completed: 50, inProgress: 5, yetToStart: 3, halted: 0 },
+                    { courseCode: "BIO202", completed: 35, inProgress: 10, yetToStart: 7, halted: 0 },
+                    { courseCode: "CHEM301", completed: 40, inProgress: 8, yetToStart: 5, halted: 1 },
+                ],
+                examDayData: [
+                    { day: "Day 1", scriptCount: 45, completedCount: 35 },
+                    { day: "Day 2", scriptCount: 52, completedCount: 48 },
+                    { day: "Day 3", scriptCount: 38, completedCount: 38 },
+                    { day: "Day 4", scriptCount: 48, completedCount: 45 },
+                    { day: "Day 5", scriptCount: 42, completedCount: 42 },
+                ],
+                evaluatedData: {
+                    evaluated: period === "Feb26" ? 150 : period === "Mar26" ? 130 : 100,
+                    nonEvaluated: period === "Feb26" ? 55 : period === "Mar26" ? 75 : 70,
+                    // mock student list for modal
+                    studentList: [
+                        { sno: 1, regNo: "R001", name: "Alice", course: "CS101", status: "Pass" },
+                        { sno: 2, regNo: "R002", name: "Bob", course: "MATH201", status: "Fail" },
+                        // ... more rows
+                    ]
+                }
+                ,
+               
+
+}
+
+            };
+        
+
+        // --- CHART JS HELPERS ---
+
+        // Destroy existing charts to prevent memory leaks and overlapping renders
+        function destroyCharts() {
+            Object.values(appState.charts).forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            appState.charts = {};
+        }
+
+        function createLegend(containerId, data, keys, colors) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            const total = data.reduce((acc, curr) => acc + curr.value, 0);
+
+            keys.forEach((key, index) => {
+                const item = data.find(d => d.key === key);
+                const value = item ? item.value : 0;
+                const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+
+                const el = document.createElement('div');
+                el.className = 'legend-item';
+                el.innerHTML = `
+                    <div class="legend-dot" style="background-color: ${colors[key]}"></div>
+                    <span>${formatLabel(key)}: ${value} (${percent}%)</span>
+                `;
+                // Add click handler for drilldown on Completed segment
+                if (key === 'completed') {
+                    el.style.cursor = 'pointer';
+                    el.onclick = () => openDrillDown();
+                }
+                container.appendChild(el);
+            });
+        }
+
+        function formatLabel(key) {
+            if (key === 'yetToStart') return 'Yet to Start';
+            return key.charAt(0).toUpperCase() + key.slice(1);
+        }
+
+        // --- RENDER FUNCTIONS ---
+
+        function renderSummaryCards() {
+            const container = document.getElementById('summaryCardsContainer');
+            const d = appState.data.summary;
+            const total = d.completed + d.inProgress + d.yetToStart + d.halted;
+
+            const cardsConfig = [
+                { label: "Total Scheduled", value: total, icon: ICONS.calendar, colorClass: "bg-gray-soft", textClass: "text-gray" },
+                { label: "Completed", value: d.completed, icon: ICONS.check, colorClass: "bg-green-soft", textClass: "text-green" },
+                { label: "In Progress", value: d.inProgress, icon: ICONS.clock, colorClass: "bg-yellow-soft", textClass: "text-yellow" },
+                { label: "Halted", value: d.halted, icon: ICONS.pause, colorClass: "bg-red-soft", textClass: "text-red" },
+            ];
+
+            container.innerHTML = cardsConfig.map(c => `
+                <div class="card stat-card ${c.colorClass}" style="border:none;">
+                    <div class="stat-content">
+                        <div class="stat-label">${c.label}</div>
+                        <div class="stat-value ${c.textClass}">${c.value}</div>
+                    </div>
+                    <div class="stat-icon ${c.textClass}">
+                        ${c.icon}
+                    </div>
+                </div>
+            `).join('');
+        }
+        function openStudentModal() {
+            const modal = document.getElementById('studentModal');
+            const tbody = document.querySelector('#studentTable tbody');
+
+            // Destroy existing DataTable if it exists
+            if ($.fn.DataTable.isDataTable('#studentTable')) {
+                $('#studentTable').DataTable().destroy();
+            }
+
+            tbody.innerHTML = '';
+
+            // Generate more comprehensive mock data for demonstration
+            const mockStudents = [
+                { sno: 1, regNo: "R001", name: "Alice Johnson", course: "CS101", status: "Pass" },
+                { sno: 2, regNo: "R002", name: "Bob Smith", course: "MATH201", status: "Pass" },
+                { sno: 3, regNo: "R003", name: "Charlie Brown", course: "PHY301", status: "Fail" },
+                { sno: 4, regNo: "R004", name: "Diana Prince", course: "ENG101", status: "Pass" },
+                { sno: 5, regNo: "R005", name: "Edward Norton", course: "BIO202", status: "Pass" },
+                { sno: 6, regNo: "R006", name: "Fiona Apple", course: "CHEM301", status: "Pass" },
+                { sno: 7, regNo: "R007", name: "George Martin", course: "CS101", status: "Fail" },
+                { sno: 8, regNo: "R008", name: "Hannah Montana", course: "MATH201", status: "Pass" },
+                { sno: 9, regNo: "R009", name: "Ian McKellen", course: "PHY301", status: "Pass" },
+                { sno: 10, regNo: "R010", name: "Julia Roberts", course: "ENG101", status: "Pass" },
+                { sno: 11, regNo: "R011", name: "Kevin Hart", course: "BIO202", status: "Fail" },
+                { sno: 12, regNo: "R012", name: "Laura Croft", course: "CHEM301", status: "Pass" },
+                { sno: 13, regNo: "R013", name: "Michael Jordan", course: "CS101", status: "Pass" },
+                { sno: 14, regNo: "R014", name: "Nancy Drew", course: "MATH201", status: "Pass" },
+                { sno: 15, regNo: "R015", name: "Oscar Wilde", course: "PHY301", status: "Pass" },
+                { sno: 16, regNo: "R016", name: "Patricia Hill", course: "ENG101", status: "Fail" },
+                { sno: 17, regNo: "R017", name: "Quincy Jones", course: "BIO202", status: "Pass" },
+                { sno: 18, regNo: "R018", name: "Rachel Green", course: "CHEM301", status: "Pass" },
+                { sno: 19, regNo: "R019", name: "Samuel Jackson", course: "CS101", status: "Pass" },
+                { sno: 20, regNo: "R020", name: "Tina Turner", course: "MATH201", status: "Pass" }
+            ];
+
+            mockStudents.forEach(student => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+            <td>${student.sno}</td>
+            <td>${student.regNo}</td>
+            <td>${student.name}</td>
+            <td>${student.course}</td>
+            <td><span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background-color: ${student.status === 'Pass' ? 'var(--color-green-bg)' : 'var(--color-red-bg)'}; color: ${student.status === 'Pass' ? 'var(--color-green-text)' : 'var(--color-red-text)'}">${student.status}</span></td>
+        `;
+                tbody.appendChild(tr);
+            });
+
+            // Initialize DataTable with custom options
+            $('#studentTable').DataTable({
+                pageLength: 10,
+                lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
+                order: [[0, 'asc']],
+                language: {
+                    search: "Search:",
+                    lengthMenu: "Show _MENU_ entries",
+                    info: "Showing _START_ to _END_ of _TOTAL_ students",
+                    infoEmpty: "Showing 0 to 0 of 0 students",
+                    infoFiltered: "(filtered from _MAX_ total students)",
+                    paginate: {
+                        first: "First",
+                        last: "Last",
+                        next: "Next",
+                        previous: "Previous"
+                    }
+                }
+            });
+
+            modal.classList.add('active');
+        }
+
+        function toggleStudentModal(show) {
+            const modal = document.getElementById('studentModal');
+            if (show) {
+                modal.classList.add('active');
+            } else {
+                // Add closing class for animation
+                modal.classList.add('closing');
+
+                // Wait for animation to complete before hiding
+                setTimeout(() => {
+                    modal.classList.remove('active');
+                    modal.classList.remove('closing');
+
+                    // Destroy DataTable when closing modal
+                    if ($.fn.DataTable.isDataTable('#studentTable')) {
+                        $('#studentTable').DataTable().destroy();
+                    }
+                }, 300); // Match the animation duration
+            }
+        }
+
+
+        function renderSummaryCharts() {
+            const d = appState.data.summary;
+            const labels = ['Completed', 'In Progress', 'Yet to Start', 'Halted'];
+            const dataValues = [d.completed, d.inProgress, d.yetToStart, d.halted];
+            const bgColors = [COLORS.completed, COLORS.inProgress, COLORS.yetToStart, COLORS.halted];
+
+            // Map keys back for helper
+            const keys = ['completed', 'inProgress', 'yetToStart', 'halted'];
+            const chartData = labels.map((l, i) => ({ name: l, value: dataValues[i], key: keys[i] }));
+
+            // 1. Pie Chart (Numbers)
+            const ctxPie = document.getElementById('summaryPieChart').getContext('2d');
+            appState.charts.pie = new Chart(ctxPie, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: bgColors,
+                        borderWidth: 0
+                    }]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw}` }
+                        },
+                        // Click event for drill down
+                        onClick: (e, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                if (index === 0) openDrillDown(); // 0 is Completed
+                            }
+                        }
+                    }
+                }
+            });
+            createLegend('summaryLegendNumbers', chartData, keys, COLORS);
+
+            // 2. Doughnut Chart (Percentage)
+            const total = dataValues.reduce((a, b) => a + b, 0);
+            const percentData = dataValues.map(v => total > 0 ? Number(((v / total) * 100).toFixed(1)) : 0);
+
+            const ctxDoughnut = document.getElementById('summaryDoughnutChart').getContext('2d');
+            appState.charts.doughnut = new Chart(ctxDoughnut, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: percentData,
+                        backgroundColor: bgColors,
+                        borderWidth: 0
+
+                    }]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    
+
+                    onClick: (e, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            if (index === 0) openDrillDown(); // Completed
+                        }
+                    },
+
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw}%` },
+                            datalabels: {   // << ADD THIS
+                                color: '#fff',
+                                font: { weight: 'bold', size: 14 },
+                                formatter: (value, context) => value
+                            },
+                        }
+                    }
+                }
+
+            });
+            createLegend('summaryLegendPercent', chartData, keys, COLORS);
+        }
+
+        function renderCourseStats() {
+            const container = document.getElementById('courseStatsContainer');
+            container.innerHTML = '';
+
+            appState.data.courseData.forEach((course, index) => {
+                const total = course.completed + course.inProgress + course.yetToStart + course.halted;
+                const completion = total > 0 ? ((course.completed / total) * 100).toFixed(1) : 0;
+                const canvasId = `courseChart-${index}`;
+
+                const card = document.createElement('div');
+                card.className = 'card course-card';
+                card.innerHTML = `
+                    <div class="course-title">${course.courseCode}</div>
+                    <div style="height: 200px; width: 100%; position: relative; margin-top: 1rem;">
+                        <canvas id="${canvasId}"></canvas>
+                    </div>
+                    <div class="course-meta" style="margin-top: 1rem;">
+                        <div>Total: ${total}</div>
+                        <div>Completion: ${completion}%</div>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                // Render mini pie chart
+                const ctx = document.getElementById(canvasId).getContext('2d');
+                appState.charts[canvasId] = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Completed', 'In Progress', 'Yet to Start', 'Halted'],
+                        datasets: [{
+                            data: [course.completed, course.inProgress, course.yetToStart, course.halted],
+                            backgroundColor: [COLORS.completed, COLORS.inProgress, COLORS.yetToStart, COLORS.halted],
+                            borderWidth: 0
+                        }]
+                    },
+                    plugins: [ChartDataLabels],
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: true },
+                            datalabels: {
+                                color: '#fff',
+                                font: { weight: 'bold', size: 12 },
+                                formatter: (value) => value > 0 ? value : null
+                            }
+                        }
+                    }
+                });
+            });
+        }
+        function renderEvaluatedChart() {
+            const data = appState.data.evaluatedData;
+            const ctx = document.getElementById('evaluatedPieChart').getContext('2d');
+
+            if (appState.charts.evaluatedPie) appState.charts.evaluatedPie.destroy();
+
+            appState.charts.evaluatedPie = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Evaluated', 'Non-Evaluated'],
+                    datasets: [{
+                        data: [data.evaluated, data.nonEvaluated],
+                        backgroundColor: [COLORS.completed, COLORS.gray],
+                        borderWidth: 0
+                    }]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                 
+
+                    onClick: (e, elements) => {   // ✅ CORRECT PLACE
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            if (index === 0) openStudentModal(); // Evaluated
+                        }
+                    },
+
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        
+                        datalabels: {
+                            color: '#fff',
+                            
+                            font: { weight: 'bold', size: 12 },
+                            formatter: (value) => value
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.label}: ${ctx.raw}`
+                            }
+                        }
+                    }
+                }
+
+            });
+        }
+
+
+        function renderBottomRow() {
+            // Bar Chart
+            const barData = appState.data.examDayData;
+            const ctxBar = document.getElementById('examDayBarChart').getContext('2d');
+            appState.charts.bar = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: barData.map(d => d.day),
+                    datasets: [
+                        {
+                            label: 'Scripts Evaluated',
+                            data: barData.map(d => d.scriptCount),
+                            backgroundColor: COLORS.blue,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Completed Scripts',
+                            data: barData.map(d => d.completedCount),
+                            backgroundColor: COLORS.completed,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [3, 3] } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        datalabels: {    // << ADD THIS
+                            anchor: 'end',
+                            align: 'end',
+                            color: '#fff',
+                            font: { weight: 'bold', size: 12 }
+                        }
+                    }
+                }
+            });
+
+            // Total Pie Chart & Metrics
+           // Total Pie Chart & Metrics
+const d = appState.data.summary;
+
+const totalScheduled =
+    d.completed + d.inProgress + d.yetToStart + d.halted;
+
+const totalCompleted = d.completed;
+
+
+            // Update Metrics Text
+            document.getElementById('metricScheduled').innerText = totalScheduled;
+            document.getElementById('metricCompleted').innerText = totalCompleted;
+            document.getElementById('metricRate').innerText =
+    totalScheduled > 0
+        ? ((totalCompleted / totalScheduled) * 100).toFixed(1) + '%'
+        : '0%';
+
+
+            const ctxTotalPie = document.getElementById('totalPieChart').getContext('2d');
+            appState.charts.totalPie = new Chart(ctxTotalPie, {
+                type: 'pie',
+                data: {
+                    labels: ['Completed', 'Remaining'],
+                    datasets: [{
+                        data: [totalCompleted, totalScheduled - totalCompleted],
+                        backgroundColor: [COLORS.completed, COLORS.gray],
+                        borderWidth: 0
+                    }]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        datalabels: {    // << ADD THIS
+                            anchor: 'end',
+                            align: 'end',
+                            color: '#000',
+                            font: { weight: 'bold', size: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderDrillDownChart() {
+            const data = appState.data.drillDownData;
+            const ctx = document.getElementById('drillDownChart').getContext('2d');
+
+            // Destroy previous instance if exists
+            if (appState.charts.drillDown) {
+                appState.charts.drillDown.destroy();
+            }
+
+            appState.charts.drillDown = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [{
+                        label: 'Completed Count',
+                        data: data.map(d => d.count),
+                        backgroundColor: COLORS.completed,
+                        borderRadius: 4
+                    }]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [3, 3] } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // --- INTERACTIONS ---
+
+        function openDrillDown() {
+            document.getElementById('drillDownModal').classList.add('active');
+            renderDrillDownChart();
+        }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('drillDownModal');
+            if (show) {
+                modal.classList.add('active');
+            } else {
+                modal.classList.remove('active');
+            }
+        }
+
+        function handlePeriodChange(e) {
+            appState.selectedPeriod = e.target.value;
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            // 1. Get Data
+            appState.data = generateMockData(appState.selectedPeriod);
+
+            // 2. Cleanup Charts
+            destroyCharts();
+
+            // 3. Render All Sections
+            renderSummaryCards();
+            renderSummaryCharts();
+            renderCourseStats();
+            renderBottomRow();
+            renderEvaluatedChart();
+        }
+
+
+        // --- INITIALIZATION ---
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const select = document.getElementById('periodSelect');
+            select.addEventListener('change', handlePeriodChange);
+
+            // Set initial data and render
+            appState.data = generateMockData(appState.selectedPeriod);
+            renderSummaryCards();
+            renderSummaryCharts();
+            renderCourseStats();
+            renderBottomRow();
+            renderEvaluatedChart();
+        });
+    </script>
+</body>
+
+</html>

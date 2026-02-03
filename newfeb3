@@ -13,7 +13,9 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
     <style>
         /* ================= CSS RESET & VARIABLES ================= */
@@ -66,28 +68,42 @@
 
         /* ================= LAYOUT COMPONENTS ================= */
         .container {
-            width: 100%;
-            max-width: 1440px;
-            margin: 0 auto;
-            padding: 0 1rem;
-            /* FIX: Smaller padding for mobile */
-            padding-bottom: 3rem;
-        }
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0 0.5rem; /* optional: small padding to prevent content touching edges */
+    padding-bottom: 3rem;
+}
 
-        @media (min-width: 1024px) {
-            .container {
-                padding: 0 2.5rem;
-            }
+@media (min-width: 1024px) {
+    .container {
+        padding: 0 0.5rem;
+    }
+}
+.profile-icon {
+    width: 40px;
+    height: 40px;
+    background-color: gray; /* blue */
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+
 
             /* Restore padding on desktop */
-        }
+        
 
         /* Header */
         header {
             background-color: var(--color-white);
             position: sticky;
             top: 0;
-            z-index: 40;
+            z-index: 1000;
             box-shadow: var(--shadow-sm);
             padding: 1.25rem 1rem;
             /* FIX: Adjusted padding */
@@ -644,6 +660,10 @@
             background-color: var(--color-blue);
             color: white;
         }
+        html, body {
+    overflow: visible;
+}
+
     </style>
 </head>
 
@@ -679,16 +699,10 @@
                 </div>
 
                 <!-- Profile Icon -->
-                <div
-                    style="width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="text-gray-700">
-                        <path d="M18 20a6 6 0 0 0-12 0" />
-                        <circle cx="12" cy="10" r="4" />
-                        <circle cx="12" cy="10" r="4" />
-                    </svg>
-                </div>
+                <div class="profile-icon">
+  <i class="fa-solid fa-user"></i>
+</div>
+
             </div>
         </div>
     </header>
@@ -723,8 +737,8 @@
 
                 <!-- Numbers Chart -->
                 <div class="card">
-                    <h3 class="chart-header">Exam Status - Numbers</h3>
-                    <div style="height: 250px; width: 100%; position: relative;">
+                    <h3 class="chart-header">Exam Status (Count)</h3>
+                    <div style="height: 200px; width: 100%; position: relative;">
                         <canvas id="summaryPieChart"></canvas>
                     </div>
                     <div id="summaryLegendNumbers" class="custom-legend"></div>
@@ -732,8 +746,8 @@
 
                 <!-- Percentage Chart -->
                 <div class="card">
-                    <h3 class="chart-header">Exam Status - Percentage</h3>
-                    <div style="height: 250px; width: 100%; position: relative;">
+                    <h3 class="chart-header">Exam Status (%)</h3>
+                    <div style="height: 200px; width: 100%; position: relative;">
                         <canvas id="summaryDoughnutChart"></canvas>
                     </div>
                     <div id="summaryLegendPercent" class="custom-legend"></div>
@@ -743,7 +757,7 @@
 
             <!-- Right Column: Detailed Stats (Courses) -->
             <div class="card" style="border-color: var(--color-gray-300);">
-                <h3 class="chart-header" style="margin-top: 1.25rem;">Progress by Course Code</h3>
+                <h3 class="chart-header" style="margin-top: 1.25rem;">Course Progress</h3>
                 <div class="detailed-stats-grid" id="courseStatsContainer">
                     <!-- Course cards injected via JS -->
                 </div>
@@ -756,7 +770,7 @@
 
             <!-- Exam Day Overview (Bar Chart) -->
             <div class="card">
-                <h3 class="chart-header" style="text-align: left;">Individual Script With Completion Count By Exam Day
+                <h3 class="chart-header" style="text-align: left;">Daily Script Completion
                 </h3>
                 <div style="height: 350px; width: 100%; position: relative;">
                     <canvas id="examDayBarChart"></canvas>
@@ -765,8 +779,8 @@
 
             <!-- Total Scheduled vs Completed -->
             <div class="card">
-                <h3 class="chart-header">Total Scheduled Students vs Completed</h3>
-                <div style="height: 300px; width: 100%; position: relative;">
+                <h3 class="chart-header">Student Exam Completion</h3>
+                <div style="height: 200px; width: 100%; position: relative;">
                     <canvas id="totalPieChart"></canvas>
                 </div>
 
@@ -787,8 +801,8 @@
 
             </div>
             <div class="card">
-                <h3 class="chart-header">Scripts Evaluated vs Non-Evaluated</h3>
-                <div style="height: 300px; width: 100%; position: relative;">
+                <h3 class="chart-header">Evaluation Status</h3>
+                <div style="height: 200px; width: 100%; position: relative;">
                     <canvas id="evaluatedPieChart"></canvas>
                 </div>
             </div>
@@ -967,9 +981,9 @@
             const total = d.completed + d.inProgress + d.yetToStart + d.halted;
 
             const cardsConfig = [
-                { label: "Total Scheduled", value: total, icon: ICONS.calendar, colorClass: "bg-gray-soft", textClass: "text-gray" },
-                { label: "Completed", value: d.completed, icon: ICONS.check, colorClass: "bg-green-soft", textClass: "text-green" },
-                { label: "In Progress", value: d.inProgress, icon: ICONS.clock, colorClass: "bg-yellow-soft", textClass: "text-yellow" },
+                { label: " Scheduled Exam", value: total, icon: ICONS.calendar, colorClass: "bg-gray-soft", textClass: "text-gray" },
+                { label: " Completed", value: d.completed, icon: ICONS.check, colorClass: "bg-green-soft", textClass: "text-green" },
+                { label: "Ongoing ", value: d.inProgress, icon: ICONS.clock, colorClass: "bg-yellow-soft", textClass: "text-yellow" },
                 { label: "Halted", value: d.halted, icon: ICONS.pause, colorClass: "bg-red-soft", textClass: "text-red" },
             ];
 
@@ -985,6 +999,63 @@
                 </div>
             `).join('');
         }
+        function renderCourseProgress() {
+    const container = document.getElementById('courseStatsContainer');
+    const courses = appState.data.courseData;
+
+    container.innerHTML = courses.map(c => {
+        const total = c.completed + c.inProgress + c.yetToStart + c.halted;
+        return `
+        <div class="course-card card" style="border:none;">
+            <div class="course-title">${c.courseCode}</div>
+            <div style="width: 100%; height: 120px; position: relative;">
+                <canvas id="courseChart-${c.courseCode}"></canvas>
+            </div>
+        </div>
+        `;
+    }).join('');
+
+    // Create small bar/doughnut charts for each course
+    courses.forEach(c => {
+        const ctx = document.getElementById(`courseChart-${c.courseCode}`).getContext('2d');
+        const dataValues = [c.completed, c.inProgress, c.yetToStart, c.halted];
+        const bgColors = [COLORS.completed, COLORS.inProgress, COLORS.yetToStart, COLORS.halted];
+
+        if (!appState.charts[`course-${c.courseCode}`]) {
+            appState.charts[`course-${c.courseCode}`] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'In Progress', 'Yet to Start', 'Halted'],
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: bgColors,
+                        borderWidth: 0
+                    }]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: {
+                            color: '#000',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: (value) => value
+                        },
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+        } else {
+            // Update existing chart
+            const chart = appState.charts[`course-${c.courseCode}`];
+            chart.data.datasets[0].data = dataValues;
+            chart.update();
+        }
+    });
+}
+
         function openStudentModal() {
             const modal = document.getElementById('studentModal');
             const tbody = document.querySelector('#studentTable tbody');
@@ -1240,16 +1311,22 @@
                     maintainAspectRatio: false,
                  
 
-                    onClick: (e, elements) => {   // ✅ CORRECT PLACE
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            if (index === 0) openStudentModal(); // Evaluated
-                        }
-                    },
-
+                   onClick: (e, elements) => {
+    if (elements.length > 0) {
+        openStudentModal(); // show table for ANY donut click
+    }
+},
                     plugins: {
-                        legend: { position: 'bottom' },
-                        
+                        legend: {
+                          position: 'bottom',
+                          align: 'center',
+                         labels: { padding: 20,paddingTop:90}
+},
+                         layout: {
+    padding: {
+      top: 90
+    }
+  },
                         datalabels: {
                             color: '#fff',
                             
@@ -1424,6 +1501,7 @@ const totalCompleted = d.completed;
             renderCourseStats();
             renderBottomRow();
             renderEvaluatedChart();
+            renderCourseCards(); 
         }
 
 
@@ -1440,6 +1518,8 @@ const totalCompleted = d.completed;
             renderCourseStats();
             renderBottomRow();
             renderEvaluatedChart();
+            renderCourseCards(); 
+            renderCourseProgress();
         });
     </script>
 </body>
